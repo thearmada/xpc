@@ -22,7 +22,11 @@ class SpiderSpider(scrapy.Spider):
         	request.meta['thumbnail'] = post.xpath('./a/img/@_src').get()
         	#print(request.meta)
         	yield request
-
+        #获取底部翻页区内所有连接，scrapy会自动过滤掉重复连接
+        next_pages = response.xpath('//div[@class="page"]/a/@href').extract()
+        for next_page in next_pages:
+        	yield Request(next_page, callback=self.parse, meta={'dont_merge_cookies': True})
+    
     def parse_post(self, response):
     	#创建一个Item对象
     	post = {}
@@ -61,6 +65,10 @@ class SpiderSpider(scrapy.Spider):
     		#把cid传递给回调函数
     		request.meta['cid'] = cid
     		yield request
+    	comment_url = 'http://www.xinpianchang.com/article/filmplay/ts-getCommentApi?id=%s&ajax=0&page=2'
+    	request = Request(comment_url % post['pid'], callback=self.parse_compoent)
+    	yield request
+
 
     def parse_composer(self, response):
     	composer = {}
@@ -83,4 +91,28 @@ class SpiderSpider(scrapy.Spider):
     	composer['career'] = response.xpath('//span[contains(@class, "icon-career")]/'
     										'following-sibling::span[1]/text()').get()
     	yield composer
+
+    def parse_comment(self, response):
+    	#直接加载json结果
+    	result = json.loads(response.txt)
+    	comments = result['data']['list']
+    	for c in comments:
+    		comment = {}
+    		comment['pid'] = c['articleid']
+    		comment['cid'] = c['userInfo']['userid']
+    		comment['uname'] = c['userInfo']['username']
+    		comment['avatar'] = c['userInfo']['face']
+    		comment['commentid'] = c['commentid']
+    		comment['content'] = c['content']
+    		comment['created_at'] = c['addtime']
+    		comment['like_counts'] = c['count_approve']
+    		#判断本条评论是否是恢复其他的评论
+    		if c['reply']:
+    			#如果是，把回复的那条评论的ID保存下来
+    			comment['reply'] = c['reply']['commentid']
+    		yield comment
+    		#判断评论是否有下一页
+    		next_page = result['data']['next_page_url']
+    		if next_page:
+    			yield Request(next_page, callback=self.parse_comment)
 
