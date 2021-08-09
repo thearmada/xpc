@@ -69,7 +69,7 @@ pyOpenSSL==17.5.0
 python-dateutil==2.6.1
 python-editor==1.0.3
 pytz==2017.2
-pywin32==221
+pywin32==301
 pywinpty==0.5.3
 pyzmq==17.0.0
 qtconsole==4.3.1
